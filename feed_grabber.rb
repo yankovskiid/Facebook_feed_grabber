@@ -13,10 +13,12 @@ class FeedGrabber
   def initialize(feed_url="https://www.facebook.com/datarockets")
     @feed_url = feed_url
     @loaded_page = Nokogiri::HTML(open(feed_url))
+    @feed_array = []
   end
 
-  def grab
-    get_all_user_posts
+  def grab(url)
+    tmp = get_page(url)
+    get_all_user_posts(tmp)
   end
 
   attr_reader :feed_url
@@ -25,10 +27,14 @@ class FeedGrabber
   attr_accessor :loaded_page
   attr_accessor :feed_array
 
-  def get_all_user_posts(url)
-    posts = url.css("div.fbUserStory")
-    feed_array = posts.map { |p| parse_post(p) }
-    b = load_more_posts(loaded_page.at_css('a.pam').attr('ajaxify'))
+  def get_page(url)
+    page = Nokogiri::HTMl(open(url))
+  end
+
+  def get_all_user_posts(page)
+    posts = page.css("div.fbUserStory")
+    @feed_array += posts.map { |p| parse_post(p) }
+    b = load_more_posts(page.at_css('a.pam').attr('ajaxify'))
 
     binding.pry
   end
