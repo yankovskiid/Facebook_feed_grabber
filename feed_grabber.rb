@@ -5,60 +5,70 @@ require 'json'
 require 'pry'
 
 class FeedGrabber
-
-  SITE = "http://www.facebook.com".freeze
-  ADDITIONAL_URL_DATA = "50&dpr=2&__user=0&__a=1&__dyn=5V8WXxaAcUmgDxKS5o9FEbFbGEW8xdLFwgoqzobpEnz8nyUdUb8aUgxebmEy6UnGiidz9XyEjKcUa8lDg4bDBxe6oGq4e9Dxi5UpAz8bo5aayrgcUhwj8oxqqax29geGxR4x3wh8eFk2u2-265oW6rGUpxy5Voyq4EswgEyq2mbzUoxnyESUcotgLyUymfUhK8xy78-5E-bQ6E&__af=h0&__req=f&__be=-1&__pc=PHASED%3ADEFAULT&__rev=3342621".freeze
+  SITE = 'http://www.facebook.com'.freeze
+  ADDITIONAL_URL_DATA = '&__a'.freeze
   JS_PART = 'for (;;);'.freeze
+  POSTS_COUNT = 100
 
-  def initialize(feed_url="https://www.facebook.com/datarockets")
+  attr_accessor :feed_array, :loaded_page
+
+  def initialize(feed_url = 'https://www.facebook.com/datarockets')
     @feed_url = feed_url
     @loaded_page = Nokogiri::HTML(open(feed_url))
     @feed_array = []
   end
 
-  def grab(url)
-    tmp = get_page(url)
-    get_all_user_posts(tmp)
+  def grab
+    parsed_page = parse_page(feed_url)
+    get_user_posts_from_page(parsed_page)
+    while get_posts_from_next_page && self.feed_array.length < POSTS_COUNT do end
+    self.feed_array
   end
 
   attr_reader :feed_url
   private
 
-  attr_accessor :loaded_page
-  attr_accessor :feed_array
-
-  def get_page(url)
-    page = Nokogiri::HTMl(open(url))
+  def parse_page(url)
+    Nokogiri::HTML(open(url))
   end
 
-  def get_all_user_posts(page)
-    posts = page.css("div.fbUserStory")
-    @feed_array += posts.map { |p| parse_post(p) }
-    b = load_more_posts(page.at_css('a.pam').attr('ajaxify'))
+  def get_posts_from_next_page
+    return nil unless (next_page_href = self.loaded_page.at_css('a.pam'))
+    next_page = load_more_posts(next_page_href.attr('ajaxify'))
+    next_page ? get_user_posts_from_page(next_page) : nil
+  end
 
-    binding.pry
+  def get_user_posts_from_page(page)
+    posts = page.css('div.fbUserStory')
+    return self.feed_array unless posts
+    self.feed_array += posts.map { |p| parse_post(p) }
   end
 
   def parse_post(post)
-    photo_img = post.css("div.mtm").at_css("img")
-    content_url = post.css('div.mbs').at_css('a')
+    photo_img = post.css('div.mtm').at_css('img')
+    content_url = get_external_link_url(post)
     temp = {
-     time: Time.at(post.css("abbr").attr("data-utime").value.to_i),
-     data: post.css("div.userContent").text,
-     photo: photo_img ? photo_img.attr("src") : "",
-     url: "facebook.com#{post.css("a._5pcq").attr('href').value}",
-     content_url: content_url ? content_url.attr('href') : ''
+     time: Time.at(post.css('abbr').attr('data-utime').value.to_i),
+     data: post.css('div.userContent').text,
+     photo_url: photo_img ? photo_img.attr('src') : '',
+     url: "#{SITE}#{post.css('a._5pcq').attr('href').value}",
+     external_link_url: content_url
     }
-    #binding.pry
   end
 
   def load_more_posts(url)
-    data = open("#{SITE}#{url[0..-2]}#{ADDITIONAL_URL_DATA}").read
+    data = open("#{SITE}#{url}#{ADDITIONAL_URL_DATA}").read
     return nil unless data.index(JS_PART).zero?
-    JSON.parse(data.sub('for (;;);', ''))['domops'][0][3]['__html']
-#    binding.pry
+    self.loaded_page = Nokogiri::HTML(JSON.parse(data.sub(JS_PART, ''))['domops'][0][3]['__html'])
   end
 
+  def get_external_link_url(post)
+    link_url = post if post.css('div.mbs') &&
+                        post.css('div.mbs').at_css('a') &&
+                        (url = URI.decode(post.css('div.mbs').at_css('a').attr('href')).match(/(\?u=)(.+)(&h=)/))
+    link_url = url ? url.captures[1] : ''
+  end
 end
 
-FeedGrabber.new.grab
+result = FeedGrabber.new('https://www.facebook.com/youtube').grab
+binding.pry
