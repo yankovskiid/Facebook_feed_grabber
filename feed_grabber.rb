@@ -2,14 +2,15 @@ require 'curb'
 require 'open-uri'
 require 'nokogiri'
 require 'json'
-require 'pry'
+require 'pry-byebug'
 
 class FeedGrabber
-  SITE = 'http://www.facebook.com'.freeze
+  SITE = 'http://web.facebook.com'.freeze
   ADDITIONAL_URL_DATA = '&__a'.freeze
   JS_PART = 'for (;;);'.freeze
   POSTS_COUNT = 100
 
+  attr_reader :feed_url
   attr_accessor :feed_array, :loaded_page
 
   def initialize(feed_url = 'https://www.facebook.com/datarockets')
@@ -25,7 +26,6 @@ class FeedGrabber
     self.feed_array
   end
 
-  attr_reader :feed_url
   private
 
   def parse_page(url)
@@ -71,4 +71,3 @@ class FeedGrabber
 end
 
 result = FeedGrabber.new('https://www.facebook.com/youtube').grab
-binding.pry
