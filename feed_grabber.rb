@@ -5,7 +5,7 @@ require 'json'
 require 'pry-byebug'
 
 class FeedGrabber
-  SITE = 'http://web.facebook.com'.freeze
+  SITE = 'https://www.facebook.com'.freeze
   ADDITIONAL_URL_DATA = '&__a'.freeze
   JS_PART = 'for (;;);'.freeze
   POSTS_COUNT = 100
@@ -24,7 +24,6 @@ class FeedGrabber
     get_user_posts_from_page(parsed_page)
     while get_posts_from_next_page && self.feed_array.count < POSTS_COUNT do end
     self.feed_array
-    binding.pry
   end
 
   private
@@ -76,9 +75,8 @@ class FeedGrabber
   end
 
   def check_external_link(post)
-    if check_element(check_element(post, 'div.mbs'), 'a')
-      post.css('div.mbs').at_css('a').attr('href')
-    end
+    return unless check_element(check_element(post, 'div.mbs'), 'a')
+    post.css('div.mbs').at_css('a').attr('href')
   end
 
   def get_match_sub(string)
@@ -93,5 +91,5 @@ class FeedGrabber
     link ? link.captures[1] : ''
   end
 end
-binding.pry
-result = FeedGrabber.new('https://www.facebook.com/datarockets').grab
+
+FeedGrabber.new('https://www.facebook.com/datarockets').grab
