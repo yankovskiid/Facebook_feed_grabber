@@ -6,23 +6,24 @@ require 'pry-byebug'
 
 class FeedGrabber
   SITE = 'https://www.facebook.com'.freeze
+  DEFAULT_FEED_URL = 'https://www.facebook.com/datarockets'.freeze
   ADDITIONAL_URL_DATA = '&__a'.freeze
   JS_PART = 'for (;;);'.freeze
-  POSTS_COUNT = 100
+  DEFAULT_POSTS_COUNT = 100
 
   attr_reader :feed_url
   attr_accessor :feed_array, :loaded_page
 
-  def initialize(feed_url = 'https://www.facebook.com/datarockets')
+  def initialize(feed_url = DEFAULT_FEED_URL)
     @feed_url = feed_url
     @loaded_page = Nokogiri::HTML(open(feed_url))
     @feed_array = []
   end
 
-  def grab
+  def grab(posts_count = DEFAULT_POSTS_COUNT)
     parsed_page = parse_page(feed_url)
     get_user_posts_from_page(parsed_page)
-    while get_posts_from_next_page && self.feed_array.count < POSTS_COUNT do end
+    while get_posts_from_next_page && self.feed_array.count < posts_count do end
     self.feed_array
   end
 
@@ -91,5 +92,3 @@ class FeedGrabber
     link ? link.captures[1] : ''
   end
 end
-
-FeedGrabber.new('https://www.facebook.com/datarockets').grab
