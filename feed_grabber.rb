@@ -1,4 +1,4 @@
-require 'curb'
+require 'cgi'
 require 'open-uri'
 require 'nokogiri'
 require 'json'
@@ -22,8 +22,9 @@ class FeedGrabber
   def grab
     parsed_page = parse_page(feed_url)
     get_user_posts_from_page(parsed_page)
-    while get_posts_from_next_page && self.feed_array.length < POSTS_COUNT do end
+    while get_posts_from_next_page && self.feed_array.count < POSTS_COUNT do end
     self.feed_array
+    binding.pry
   end
 
   private
@@ -47,27 +48,50 @@ class FeedGrabber
   def parse_post(post)
     photo_img = post.css('div.mtm').at_css('img')
     content_url = get_external_link_url(post)
-    temp = {
-     time: Time.at(post.css('abbr').attr('data-utime').value.to_i),
-     data: post.css('div.userContent').text,
-     photo_url: photo_img ? photo_img.attr('src') : '',
-     url: "#{SITE}#{post.css('a._5pcq').attr('href').value}",
-     external_link_url: content_url
+    {
+      time: Time.at(post.css('abbr').attr('data-utime').value.to_i),
+      data: post.css('div.userContent').text,
+      photo_url: photo_img ? photo_img.attr('src') : '',
+      url: "#{SITE}#{post.css('a._5pcq').attr('href').value}",
+      external_link_url: content_url
     }
   end
 
   def load_more_posts(url)
     data = open("#{SITE}#{url}#{ADDITIONAL_URL_DATA}").read
     return nil unless data.index(JS_PART).zero?
-    self.loaded_page = Nokogiri::HTML(JSON.parse(data.sub(JS_PART, ''))['domops'][0][3]['__html'])
+    self.loaded_page = Nokogiri::HTML(parse_response_data(data))
+  end
+
+  def parse_response_data(data)
+    JSON.parse(data.sub(JS_PART, ''))['domops'][0][3]['__html']
+  end
+
+  def check_element(post, tag)
+    post ? post.at_css(tag) : nil
+  end
+
+  def decode_www_form(string)
+    CGI.unescape(string)
+  end
+
+  def check_external_link(post)
+    if check_element(check_element(post, 'div.mbs'), 'a')
+      post.css('div.mbs').at_css('a').attr('href')
+    end
+  end
+
+  def get_match_sub(string)
+    string.match(/(\?u=)(.+)(&h=)/)
   end
 
   def get_external_link_url(post)
-    link_url = post if post.css('div.mbs') &&
-                        post.css('div.mbs').at_css('a') &&
-                        (url = URI.decode(post.css('div.mbs').at_css('a').attr('href')).match(/(\?u=)(.+)(&h=)/))
-    link_url = url ? url.captures[1] : ''
+    if (link = check_external_link(post))
+      link = decode_www_form(link)
+      link = get_match_sub(link)
+    end
+    link ? link.captures[1] : ''
   end
 end
-
-result = FeedGrabber.new('https://www.facebook.com/youtube').grab
+binding.pry
+result = FeedGrabber.new('https://www.facebook.com/datarockets').grab
